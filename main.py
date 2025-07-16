@@ -111,80 +111,42 @@ def calculate_magnification(u_source, u_planet_x, planet_separation, mass_ratio,
         float or np.array: 계산된 광도 증폭률.
     """
     
-    # 🌟🌟🌟 여기서 magnification 변수를 초기화합니다 🌟🌟🌟
+    # magnification 변수를 초기화합니다.
+    # 이 변수는 함수 내의 모든 실행 경로에서 값을 가질 수 있도록 보장됩니다.
     magnification = 1.0 # 기본 증폭률을 1.0으로 설정 (아무런 렌즈 효과가 없을 때의 밝기)
 
     # 단일 렌즈에 의한 증폭 (유한한 광원 크기 근사 포함)
     u_squared = u_source**2
-    if u_source < source_size: # 광원 중심이 렌즈 중심에 매우 가까울 때
-        # 광원 크기를 고려한 근사 (중앙 밝기 제한)
-        if u_source == 0: # 정확히 중심일 경우
-            magnification = (u_squared + 2) / (np.sqrt(u_squared + 4) * source_size) # 임의의 중앙 증폭 상한
-        else: # u_source가 0은 아니지만 source_size보다 작을 때
-            # 점 광원 공식에 기반하되, 매우 가까운 거리에 대한 처리
-            magnification = (u_squared + 2) / (u_source * np.sqrt(u_squared + 4))
-            if magnification > 1e3: # 과도한 증폭 방지 (시뮬레이션 안정성 목적)
-                magnification = 1e3 
+    
+    # u_source가 0에 매우 가까울 때 무한대 증폭을 피하기 위한 처리
+    if u_source < 1e-6: # u_source가 0에 매우 가깝다면 (점 광원 근사)
+        if source_size > 0: # 광원 크기가 정의되어 있다면
+            # 유한한 광원 크기를 고려한 중앙 증폭 상한
+            magnification = (u_squared + 2) / (np.sqrt(u_squared + 4) * source_size)
+        else: # source_size가 0이거나 매우 작다면 (거의 점 광원)
+            magnification = 1e6 # 임의의 큰 값으로 설정 (무한대 발산 근사)
     else:
         magnification = (u_squared + 2) / (u_source * np.sqrt(u_squared + 4))
 
-    # 행성으로 인한 추가 증폭 (매우 단순화된 모델)
-    influence_radius = 0.05 + mass_ratio * 100 
-    effective_dist_to_planet_feature = abs(u_source - u_planet_x) 
-    
-    if effective_dist_to_planet_feature < (influence_radius + source_size):
-        denom_planet = (0.001 + effective_dist_to_planet_feature**2) 
-        additional_mag_from_planet = (mass_ratio / denom_planet) * 500
-        magnification += additional_mag_from_planet
+    # 과도한 증폭 방지 (시뮬레이션 안정성 목적)
+    if magnification > 1e4: # 너무 큰 값 방지
+        magnification = 1e4
 
-    return magnification
-    """
-    
-    # 단일 렌즈에 의한 증폭 (유한한 광원 크기 근사 포함)
-    u_squared = u_source**2
-    if u_source < source_size: # 광원 중심이 렌즈 중심에 매우 가까울 때
-        mag_main = (u_squared + 2) / (u_source * np.sqrt(u_squared + 4)) # 점 광원 공식 (근사)
-        # 광원 크기를 고려한 근사 (중앙 밝기 제한)
-        if u_source == 0: # 정확히 중심일 경우
-            mag_main = (u_squared + 2) / (np.sqrt(u_squared + 4) * source_size) # 임의의 중앙 증폭 상한
-        elif u_source < source_size * 0.1: # 아주 가까울 때
-            mag_main = (1 + 2/(source_size * np.sqrt(1 + 4/source_size**2))) # 임의로 제한
-    else:
-        mag_main = (u_squared + 2) / (u_source * np.sqrt(u_squared + 4))
 
     # 행성으로 인한 추가 증폭 (매우 단순화된 모델)
-    # 행성 '특이점' 근처를 지날 때 추가 증폭 발생
-    # 행성 위치는 렌즈 별에서 'planet_separation'만큼 떨어져 있습니다.
-    # 배경 별의 경로가 'planet_position' 근처를 지날 때 행성의 영향이 나타납니다.
+    # 이 모델은 실제 물리 현상을 정확히 반영하지 않으며, 개념적 이해를 돕기 위함입니다.
+    # 실제 이진 렌즈 곡선을 위해서는 전문적인 렌즈 방정식 해결이 필요합니다.
     
-    # 행성 중력의 영향이 미치는 거리 (아인슈타인 반경 대비)
-    # 이 값은 행성 질량과 분리 거리에 따라 달라집니다.
-    influence_radius = 0.05 + mass_ratio * 100 # 질량이 클수록 영향 범위 증가
+    # 행성 중력의 영향이 미치는 범위 (아인슈타인 반경 대비)
+    influence_radius = 0.05 + mass_ratio * 50 # 질량이 클수록 영향 범위 증가
 
-    # 배경 별이 행성의 '영향권'에 들어왔을 때
-    # u_source는 배경별이 렌즈중심으로부터 떨어진 거리
-    # u_planet_x는 행성이 렌즈중심으로부터 떨어진 거리
-    # 이 두 거리가 서로 가까워질 때 행성효과 발생
+    # 배경 별이 행성의 '영향권'에 들어왔을 때 추가 증폭 적용
+    effective_dist_to_planet_feature = abs(u_source - u_planet_x)
     
-    # 여기서 `u_planet_x`는 `planet_position` 슬라이더 값
-    # `planet_separation`은 행성이 렌즈 별에서 얼마나 떨어져 있는지를 나타내는 고정 값 (혹은 다른 슬라이더 값)
-    
-    # 렌즈-행성-광원 간의 복합적인 상호작용 지점을 단순화
-    # 렌즈 중심으로부터 'u_source' 떨어진 광원과, 렌즈 중심으로부터 'u_planet_x' 떨어진 행성의 상대적인 위치
-    effective_dist_to_planet_feature = abs(u_source - u_planet_x) 
-    
-    # 행성의 물리적 위치 (렌즈로부터의 거리)를 고려하여 영향 범위 조절
-    # 행성이 렌즈 별에 가까울수록 (planet_separation이 작을수록) 메인 렌즈 근처에서 범프
-    # 멀수록 (planet_separation이 클수록) 메인 렌즈에서 떨어진 곳에서 범프
-    
-    # 여기서는 `effective_dist_to_planet_feature`가 'planet_separation'과 비슷할 때 범프를 줍니다.
-    # 그리고 배경별의 경로가 행성위치에 가까울 때만 효과를 나타나게 합니다.
-    # 이 조건은 `u_source`가 `u_planet_x`와 가깝고, 동시에 `planet_separation` 값 주변에서 발생하도록.
-    
-    # 복잡한 이진 렌즈 방정식을 아주 간단하게 흉내냅니다.
-    if abs(effective_dist_to_planet_feature) < (influence_radius + source_size):
+    # 이 조건은 배경별이 행성 위치(u_planet_x)에 가까이 있을 때만 행성 효과를 적용합니다.
+    if effective_dist_to_planet_feature < influence_radius: 
         # 행성 질량비와 거리에 반비례하는 추가 증폭
-        denom_planet = (0.001 + effective_dist_to_planet_feature**2) 
+        denom_planet = (0.001 + effective_dist_to_planet_feature**2) # 0 나눗셈 방지
         additional_mag_from_planet = (mass_ratio / denom_planet) * 500 # 증폭 계수 조정
         magnification += additional_mag_from_planet
 
@@ -207,21 +169,17 @@ ax_lensing.add_artist(plt.Circle((0, 0), 10, color='yellow', zorder=5)) # 렌즈
 ax_lensing.text(0, -15, '렌즈 별', color='white', ha='center', fontsize=10)
 
 # 외계 행성 그리기 (렌즈 별 주위에 위치, planet_position 슬라이더 값 반영)
-# `planet_position`은 아인슈타인 반경의 배수로 해석하여 시각화에 적용
-# `planet_position`은 렌즈 별 중심으로부터의 상대적인 횡단면 거리 (u_param과 유사)
 planet_display_x = planet_position * R_E_display 
 planet_display_y = planet_separation_from_lens * 15 # 행성이 렌즈 별로부터의 거리 시각화에 반영
 ax_lensing.add_artist(plt.Circle((planet_display_x, planet_display_y), 4, color='gray', zorder=6)) # 외계 행성
 ax_lensing.text(planet_display_x, planet_display_y + 10, '외계 행성', color='white', ha='center', fontsize=10)
 
 # 배경 별 (광원) 그리기 (시뮬레이션에서 고정된 위치 - 관측자 시점에서 렌즈 뒤)
-# 광원 크기 반영 (시각화 목적)
 source_display_radius = source_radius_ratio * R_E_display * 5 # 시각화 스케일 조정
 ax_lensing.add_artist(plt.Circle((R_E_display * 0.8, -R_E_display * 0.6), source_display_radius, color='white', zorder=4)) # 배경 별 (광원)
 ax_lensing.text(R_E_display * 0.8, -R_E_display * 0.75, '배경 별', color='white', ha='center', fontsize=10)
 
 # 아인슈타인 링 시각화 (개념적 표현)
-# 렌즈 별을 중심으로 아인슈타인 반경을 시각적으로 나타냅니다.
 circle_einstein = plt.Circle((0, 0), R_E_display, color='cyan', linestyle='--', fill=False, alpha=0.5, zorder=3)
 ax_lensing.add_artist(circle_einstein)
 ax_lensing.text(R_E_display + 5, 0, '아인슈타인 링', color='cyan', va='center', ha='left', fontsize=10)
