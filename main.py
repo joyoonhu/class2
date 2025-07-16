@@ -173,7 +173,7 @@ def update_lensing_visualization(current_u_x, current_u_y, current_planet_x, cur
     source_display_x = -current_u_x * R_E_display 
     source_display_y = -current_u_y * R_E_display 
     source_display_radius = source_radius_ratio * R_E_display * 5 
-    ax_obj.add_artist(plt.Circle((source_display_x, source_display_y), source_display_radius, color='orange', zorder=4)) # 광원 색상 변경
+    ax_obj.add_artist(plt.Circle((source_display_x, source_display_y), source_display_radius, color='orange', zorder=4)) 
     ax_obj.text(source_display_x, source_display_y - 15, '배경 별', color='white', ha='center', fontsize=10)
 
 
@@ -223,7 +223,7 @@ if animate_button:
     st.session_state.animating = not st.session_state.animating 
 
 if st.session_state.get('animating', False):
-    st.write("애니메이션 실행 중... 🌟") # 애니메이션 시작 알림
+    st.write("애니메이션 실행 중... 🌟") 
     progress_bar = st.progress(0)
     for i in range(101):
         current_u_index = int(i / 100 * (len(u_values_x_curve) - 1))
@@ -244,11 +244,8 @@ if st.session_state.get('animating', False):
 
         ax_light_curve.clear()
         
-        # 밝기 곡선 전체를 매 프레임마다 행성 위치에 따라 다시 계산
         magnifications_curve_animated = []
         for idx, u_x_val in enumerate(u_values_x_curve):
-            # 밝기 곡선 그릴 때도 현재 애니메이션 프레임의 행성 위치를 반영
-            # (i / 100)은 전체 애니메이션 진행도
             temp_planet_angle_rad = np.deg2rad(planet_initial_angle_deg + (i / 100) * 360 / planet_orbital_period_factor)
             temp_planet_x = planet_separation_from_lens * np.cos(temp_planet_angle_rad)
             temp_planet_y = planet_separation_from_lens * np.sin(temp_planet_angle_rad)
@@ -309,7 +306,6 @@ else:
     )
     visualization_placeholder.pyplot(fig_lensing)
 
-    # 슬라이더 조작 시 밝기 곡선도 현재 행성 위치에 따라 동적으로 계산
     magnifications_curve_static = []
     for u_x_val in u_values_x_curve:
         mag = calculate_magnification(
@@ -345,21 +341,45 @@ else:
     ax_light_curve.legend()
     light_curve_placeholder.pyplot(fig_light_curve)
 
+---
 
-# --- 6. 추가 정보 섹션 ---
-st.markdown("---")
-st.subheader("중력 렌즈에 대하여")
-st.write("""
-**중력 렌즈(Gravitational Lensing)**는 아인슈타인의 일반 상대성 이론에 의해 예측된 현상입니다.
-질량을 가진 물체(예: 별, 은하, 블랙홀)가 주변의 시공간을 휘게 만들고,
-이 휘어진 시공간을 통과하는 빛의 경로가 마치 렌즈를 통과하는 것처럼 휘어지는 현상입니다.
-이는 멀리 떨어진 광원(배경 별)의 이미지를 확대하거나 왜곡시켜 보이는 효과를 줍니다.
+## 🌠 유효 증폭률 분포: 배경 별 크기의 영향
 
-**미세 중력 렌즈(Microlensing)**는 렌즈 역할을 하는 천체가 항성이나 비교적 작은 천체(예: 외계 행성)일 때 나타나는 현상입니다.
-이 경우, 멀리 떨어진 배경 별의 빛이 렌즈 천체에 의해 일시적으로 밝아지는 **광도 변화**가 발생합니다.
-특히 렌즈 별 주위에 외계 행성이 존재하면, 행성의 중력도 빛의 경로에 미세한 영향을 주어
-배경 별의 밝기 곡선에 독특한 추가적인 변화(예: '범프' 또는 '딥')를 만들어냅니다.
-이러한 미세한 밝기 변화를 분석하여 직접 보기 어려운 외계 행성의 존재를 찾아낼 수 있습니다.
-""")
+배경 별의 크기(`source_radius_ratio`)가 단일 렌즈에 의한 밝기 곡선의 최대 증폭률에 어떤 영향을 미치는지 보여줍니다. 배경 별이 커질수록 피크가 뭉툭해지는 것을 볼 수 있습니다.
 
-st.info("이 시뮬레이션은 중력 렌즈 현상, 특히 외계 행성이 미치는 영향을 개념적으로 보여주기 위해 **매우 단순화된 물리 모델**을 사용합니다. 실제 천문학적 관측 및 이론은 훨씬 더 복잡합니다.")
+
+
+```python
+fig_effective_mag, ax_effective_mag = plt.subplots(figsize=(8, 4))
+
+# 테스트할 source_radius_ratio 값들
+test_source_sizes = [0.001, 0.01, 0.05, 0.1]
+colors = ['purple', 'green', 'blue', 'red']
+labels = [f'Size: {s:.3f}' for s in test_source_sizes]
+
+# 단일 렌즈의 밝기 곡선을 위한 u 값 범위
+u_values_for_effect_mag = np.linspace(-1.0, 1.0, 200)
+
+for i, s_size in enumerate(test_source_sizes):
+    magnifications = []
+    for u_val in u_values_for_effect_mag:
+        # 단일 렌즈의 증폭률만 계산 (행성 효과 배제, u_planet_x=0, u_planet_y=0, mass_ratio=0)
+        mag = calculate_magnification(
+            u_source_x=u_val,
+            u_source_y=0.0, 
+            u_planet_x=0.0,
+            u_planet_y=0.0,
+            mass_ratio=0.0, 
+            source_size=s_size
+        )
+        magnifications.append(mag)
+    ax_effective_mag.plot(u_values_for_effect_mag, magnifications, color=colors[i], label=labels[i])
+
+ax_effective_mag.set_title("배경 별 크기에 따른 단일 렌즈 증폭률")
+ax_effective_mag.set_xlabel("렌즈 중심으로부터의 거리 (u)")
+ax_effective_mag.set_ylabel("광도 증폭률")
+ax_effective_mag.grid(True)
+ax_effective_mag.set_ylim(bottom=1.0)
+ax_effective_mag.legend()
+
+st.pyplot(fig_effective_mag)
