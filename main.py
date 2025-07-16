@@ -111,6 +111,35 @@ def calculate_magnification(u_source, u_planet_x, planet_separation, mass_ratio,
         float or np.array: 계산된 광도 증폭률.
     """
     
+    # 🌟🌟🌟 여기서 magnification 변수를 초기화합니다 🌟🌟🌟
+    magnification = 1.0 # 기본 증폭률을 1.0으로 설정 (아무런 렌즈 효과가 없을 때의 밝기)
+
+    # 단일 렌즈에 의한 증폭 (유한한 광원 크기 근사 포함)
+    u_squared = u_source**2
+    if u_source < source_size: # 광원 중심이 렌즈 중심에 매우 가까울 때
+        # 광원 크기를 고려한 근사 (중앙 밝기 제한)
+        if u_source == 0: # 정확히 중심일 경우
+            magnification = (u_squared + 2) / (np.sqrt(u_squared + 4) * source_size) # 임의의 중앙 증폭 상한
+        else: # u_source가 0은 아니지만 source_size보다 작을 때
+            # 점 광원 공식에 기반하되, 매우 가까운 거리에 대한 처리
+            magnification = (u_squared + 2) / (u_source * np.sqrt(u_squared + 4))
+            if magnification > 1e3: # 과도한 증폭 방지 (시뮬레이션 안정성 목적)
+                magnification = 1e3 
+    else:
+        magnification = (u_squared + 2) / (u_source * np.sqrt(u_squared + 4))
+
+    # 행성으로 인한 추가 증폭 (매우 단순화된 모델)
+    influence_radius = 0.05 + mass_ratio * 100 
+    effective_dist_to_planet_feature = abs(u_source - u_planet_x) 
+    
+    if effective_dist_to_planet_feature < (influence_radius + source_size):
+        denom_planet = (0.001 + effective_dist_to_planet_feature**2) 
+        additional_mag_from_planet = (mass_ratio / denom_planet) * 500
+        magnification += additional_mag_from_planet
+
+    return magnification
+    """
+    
     # 단일 렌즈에 의한 증폭 (유한한 광원 크기 근사 포함)
     u_squared = u_source**2
     if u_source < source_size: # 광원 중심이 렌즈 중심에 매우 가까울 때
