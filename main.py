@@ -345,7 +345,7 @@ else:
 
 ## 🌠 유효 증폭률 분포: 배경 별 크기의 영향
 
-배경 별의 크기(`source_radius_ratio`)가 단일 렌즈에 의한 밝기 곡선의 최대 증폭률에 어떤 영향을 미치는지 보여줍니다. 배경 별이 커질수록 피크가 뭉툭해지는 것을 볼 수 있습니다.
+배경 별의 크기(**`source_radius_ratio`**)가 단일 렌즈에 의한 밝기 곡선의 최대 증폭률에 어떤 영향을 미치는지 보여줍니다. 배경 별이 커질수록 피크가 뭉툭해지는 것을 볼 수 있습니다.
 
 
 
@@ -364,12 +364,13 @@ for i, s_size in enumerate(test_source_sizes):
     magnifications = []
     for u_val in u_values_for_effect_mag:
         # 단일 렌즈의 증폭률만 계산 (행성 효과 배제, u_planet_x=0, u_planet_y=0, mass_ratio=0)
+        # calculate_magnification 함수를 재사용하여 단일 렌즈 케이스를 시뮬레이션
         mag = calculate_magnification(
             u_source_x=u_val,
-            u_source_y=0.0, 
+            u_source_y=0.0, # 렌즈 중심 통과 가정
             u_planet_x=0.0,
             u_planet_y=0.0,
-            mass_ratio=0.0, 
+            mass_ratio=0.0, # 행성 질량 0으로 설정하여 행성 효과 제거
             source_size=s_size
         )
         magnifications.append(mag)
