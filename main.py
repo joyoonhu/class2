@@ -5,13 +5,12 @@ import matplotlib.pyplot as plt
 # --- 1. 시뮬레이션 파라미터 설정 ---
 st.set_page_config(layout="wide") # 페이지 레이아웃 넓게 설정
 st.title("🌌 미세 중력 렌즈 시뮬레이션")
-st.write("외계 행성 위치와 렌즈 별 질량을 조절하여 중력 렌즈 효과와 밝기 변화 곡선을 관찰해보세요.")
+st.write("다양한 파라미터를 조절하여 중력 렌즈 효과와 외계 행성으로 인한 밝기 변화 곡선을 관찰해보세요.")
 
 # 사이드바에서 파라미터 조절
 st.sidebar.header("조정 파라미터")
 
 # 외계 행성 위치 조절 (렌즈 별에 대한 상대적인 X축 위치)
-# 이 값은 렌즈 별을 기준으로 행성의 횡단면 위치를 결정합니다.
 planet_position = st.sidebar.slider(
     "외계 행성 상대 위치 (렌즈 별 중심 기준)",
     min_value=-2.0, max_value=2.0, value=0.0, step=0.05,
@@ -25,6 +24,45 @@ lens_mass_solar = st.sidebar.slider(
     help="빛을 휘게 하는 렌즈 별의 질량 (태양 질량 대비)."
 )
 
+# --- 새로 추가된 변수들 ---
+# 1. 광원 별의 크기 (아인슈타인 반경 대비)
+source_radius_ratio = st.sidebar.slider(
+    "광원 별의 크기 (아인슈타인 반경 대비)",
+    min_value=0.001, max_value=0.1, value=0.005, step=0.001, format="%.3f",
+    help="배경 광원 별의 유한한 크기. 값이 커질수록 밝기 곡선 피크가 뭉툭해집니다."
+)
+
+# 2. 외계 행성 질량 (렌즈 별 질량 대비)
+planet_mass_ratio = st.sidebar.slider(
+    "외계 행성 질량 (렌즈 별 질량 대비)",
+    min_value=1e-6, max_value=1e-2, value=1e-4, step=1e-6, format="%.0e",
+    help="외계 행성의 질량 비율. 범프의 크기에 영향."
+)
+
+# 3. 외계 행성의 렌즈 별로부터의 거리 (아인슈타인 반경 대비)
+# 이 값은 행성이 렌즈 별로부터 얼마나 떨어져 있는지 나타냅니다.
+planet_separation_from_lens = st.sidebar.slider(
+    "행성-렌즈 별 분리 거리 (아인슈타인 반경 대비)",
+    min_value=0.5, max_value=2.0, value=1.0, step=0.05,
+    help="렌즈 별로부터 행성까지의 거리, 아인슈타인 반경의 배수."
+)
+
+# 4. 렌즈와 광원의 상대 속도 (밝기 곡선의 폭에 영향)
+# 이 값은 밝기 곡선 이벤트의 지속 시간을 조절하는 데 사용됩니다.
+relative_velocity_factor = st.sidebar.slider(
+    "렌즈-광원 상대 속도",
+    min_value=0.1, max_value=2.0, value=1.0, step=0.1,
+    help="밝기 곡선 이벤트의 지속 시간(x축 스케일)에 영향. 값이 클수록 이벤트가 짧아집니다."
+)
+
+# 5. 관측자-렌즈 거리 (kpc)
+# 이 값은 아인슈타인 반경의 크기에 영향을 줍니다.
+observer_lens_distance_kpc = st.sidebar.slider(
+    "관측자-렌즈 거리 (kpc)",
+    min_value=1.0, max_value=10.0, value=8.0, step=0.1,
+    help="관측자부터 렌즈 별까지의 거리 (킬로파섹). 아인슈타인 반경 크기에 영향."
+)
+
 # --- 2. 물리 상수 및 기본 설정 ---
 # 실제 물리 상수 (SI 단위)
 G = 6.67430e-11  # 중력 상수 (m^3 kg^-1 s^-2)
@@ -32,15 +70,14 @@ c = 2.99792458e8 # 빛의 속도 (m/s)
 M_sun = 1.989e30 # 태양 질량 (kg)
 
 # 천문학적 거리 단위 변환
-# 1 파섹(pc) = 3.0857e16 미터
-# 1 광년(ly) = 9.461e15 미터
-PC_TO_METER = 3.0857e16
+PC_TO_METER = 3.0857e16 # 1 파섹(pc) = 3.0857e16 미터
 
-# 시뮬레이션에 사용할 거리 파라미터 (예시 값)
-# D_L: 관측자-렌즈 거리, D_S: 관측자-광원 거리
-# 미세 중력 렌즈에서 일반적으로 사용되는 거리 스케일
-D_L = 8000 * PC_TO_METER # 8 kpc (8000 파섹)
-D_S = 8500 * PC_TO_METER # 8.5 kpc (8500 파섹)
+# 시뮬레이션에 사용할 거리 파라미터 (사용자 입력 반영)
+D_L = observer_lens_distance_kpc * 1000 * PC_TO_METER # kpc를 미터로 변환
+
+# 관측자-광원 거리 (고정 값으로 설정하거나 추가 슬라이더로 조절 가능)
+# 여기서는 렌즈가 광원보다 가까이 있다고 가정
+D_S = D_L + (500 * PC_TO_METER) # 렌즈보다 500 파섹 뒤에 광원이 있다고 가정
 
 # 렌즈-광원 거리 (D_LS = D_S - D_L)
 D_LS = D_S - D_L
@@ -49,54 +86,81 @@ D_LS = D_S - D_L
 M_lens = lens_mass_solar * M_sun
 
 # 아인슈타인 반경 (각도 단위 - 라디안)
-# 이는 렌즈 시스템의 특징적인 스케일입니다.
-# θ_E = sqrt(4GM/c^2 * (D_LS / (D_L * D_S)))
 einstein_radius_angle = np.sqrt(4 * G * M_lens / (c**2) * D_LS / (D_L * D_S))
 
 # 시각화 목적을 위한 아인슈타인 반경의 '표시' 스케일 (픽셀 또는 임의 단위)
-# 이 값은 그림을 그릴 때 스케일링 팩터로 사용됩니다.
 R_E_display = 40 # 시각화에서 아인슈타인 반경에 해당하는 픽셀 크기
 
 
 # --- 3. 중력 렌즈 광도 증폭 계산 함수 ---
-def calculate_magnification(u, alpha_planet=0.0, planet_separation=0.1, planet_mass_ratio=1e-3):
+# 이 함수는 단일 렌즈와 행성의 매우 단순화된 상호작용을 모델링합니다.
+# 실제 이진 렌즈 광도 곡선은 훨씬 복잡하며, 전문 라이브러리나 수치적 해결이 필요합니다.
+def calculate_magnification(u_source, u_planet_x, planet_separation, mass_ratio, source_size):
     """
-    미세 중력 렌즈 광도 증폭률 계산 (두 물체 렌즈 시스템의 단순화된 근사)
+    미세 중력 렌즈 광도 증폭률 계산 (단순화된 근사)
 
     Args:
-        u (float or np.array): 배경 별이 렌즈 별 중심으로부터 떨어져 있는 무차원 거리 (충격 매개변수 / 아인슈타인 반경).
-                               이 u 값은 시간 경과에 따라 변합니다.
-        alpha_planet (float): 외계 행성의 렌즈 별에 대한 상대적인 X축 위치 (아인슈타인 반경의 배수).
-        planet_separation (float): 행성과 렌즈 별 사이의 거리 비율 (아인슈타인 반경 기준).
-                                   일반적으로 0.1~2.0 사이의 값.
-        planet_mass_ratio (float): 행성 질량 / 렌즈 별 질량. (예: 지구/태양 = 3e-6)
+        u_source (float or np.array): 배경 별이 렌즈 중심으로부터 떨어져 있는 무차원 거리 (x축).
+                                      아인슈타인 반경 단위.
+        u_planet_x (float): 외계 행성의 렌즈 별에 대한 X축 위치 (아인슈타인 반경 단위).
+        planet_separation (float): 행성과 렌즈 별 사이의 거리 비율 (아인슈타인 반경 단위).
+        mass_ratio (float): 행성 질량 / 렌즈 별 질량.
+        source_size (float): 광원 별의 크기 (아인슈타인 반경 대비).
 
     Returns:
         float or np.array: 계산된 광도 증폭률.
-
-    참고: 이 함수는 이진 렌즈(binary lens)의 복잡한 수식을
-          매우 단순화하여 행성 영향을 대략적으로 보여줍니다.
-          정확한 시뮬레이션을 위해서는 전문적인 렌즈 방정식 해결이 필요합니다.
     """
     
-    # 렌즈 별에 의한 기본 증폭 (단일 렌즈 공식)
-    u_squared = u**2
-    magnification = (u_squared + 2) / (u * np.sqrt(u_squared + 4)) if u > 1e-6 else 1e6 # 0 나눗셈 방지
+    # 단일 렌즈에 의한 증폭 (유한한 광원 크기 근사 포함)
+    u_squared = u_source**2
+    if u_source < source_size: # 광원 중심이 렌즈 중심에 매우 가까울 때
+        mag_main = (u_squared + 2) / (u_source * np.sqrt(u_squared + 4)) # 점 광원 공식 (근사)
+        # 광원 크기를 고려한 근사 (중앙 밝기 제한)
+        if u_source == 0: # 정확히 중심일 경우
+            mag_main = (u_squared + 2) / (np.sqrt(u_squared + 4) * source_size) # 임의의 중앙 증폭 상한
+        elif u_source < source_size * 0.1: # 아주 가까울 때
+            mag_main = (1 + 2/(source_size * np.sqrt(1 + 4/source_size**2))) # 임의로 제한
+    else:
+        mag_main = (u_squared + 2) / (u_source * np.sqrt(u_squared + 4))
 
-    # 행성으로 인한 추가 증폭 (간단한 근사)
-    # 배경 별이 렌즈 별과 행성 사이의 특별한 영역을 통과할 때 '범프'를 만듭니다.
-    # 여기서는 `planet_position` (alpha_planet)이 u 값과 가까울 때 추가적인 영향을 줍니다.
+    # 행성으로 인한 추가 증폭 (매우 단순화된 모델)
+    # 행성 '특이점' 근처를 지날 때 추가 증폭 발생
+    # 행성 위치는 렌즈 별에서 'planet_separation'만큼 떨어져 있습니다.
+    # 배경 별의 경로가 'planet_position' 근처를 지날 때 행성의 영향이 나타납니다.
     
-    # 행성의 중력 영향 범위 (예: 행성 분리 거리의 일정 비율)
-    planet_influence_range = planet_separation * 0.5 
+    # 행성 중력의 영향이 미치는 거리 (아인슈타인 반경 대비)
+    # 이 값은 행성 질량과 분리 거리에 따라 달라집니다.
+    influence_radius = 0.05 + mass_ratio * 100 # 질량이 클수록 영향 범위 증가
+
+    # 배경 별이 행성의 '영향권'에 들어왔을 때
+    # u_source는 배경별이 렌즈중심으로부터 떨어진 거리
+    # u_planet_x는 행성이 렌즈중심으로부터 떨어진 거리
+    # 이 두 거리가 서로 가까워질 때 행성효과 발생
     
-    # 배경 별의 경로가 행성 위치 근처를 지날 때 추가 증폭 적용
-    if abs(u - alpha_planet) < planet_influence_range:
-        # 행성 질량비에 비례하고, 거리에 반비례하는 간단한 형태의 추가 증폭
-        additional_magnification = (planet_mass_ratio / (0.01 + abs(u - alpha_planet)**2)) * 1000 
-        magnification += additional_magnification
+    # 여기서 `u_planet_x`는 `planet_position` 슬라이더 값
+    # `planet_separation`은 행성이 렌즈 별에서 얼마나 떨어져 있는지를 나타내는 고정 값 (혹은 다른 슬라이더 값)
+    
+    # 렌즈-행성-광원 간의 복합적인 상호작용 지점을 단순화
+    # 렌즈 중심으로부터 'u_source' 떨어진 광원과, 렌즈 중심으로부터 'u_planet_x' 떨어진 행성의 상대적인 위치
+    effective_dist_to_planet_feature = abs(u_source - u_planet_x) 
+    
+    # 행성의 물리적 위치 (렌즈로부터의 거리)를 고려하여 영향 범위 조절
+    # 행성이 렌즈 별에 가까울수록 (planet_separation이 작을수록) 메인 렌즈 근처에서 범프
+    # 멀수록 (planet_separation이 클수록) 메인 렌즈에서 떨어진 곳에서 범프
+    
+    # 여기서는 `effective_dist_to_planet_feature`가 'planet_separation'과 비슷할 때 범프를 줍니다.
+    # 그리고 배경별의 경로가 행성위치에 가까울 때만 효과를 나타나게 합니다.
+    # 이 조건은 `u_source`가 `u_planet_x`와 가깝고, 동시에 `planet_separation` 값 주변에서 발생하도록.
+    
+    # 복잡한 이진 렌즈 방정식을 아주 간단하게 흉내냅니다.
+    if abs(effective_dist_to_planet_feature) < (influence_radius + source_size):
+        # 행성 질량비와 거리에 반비례하는 추가 증폭
+        denom_planet = (0.001 + effective_dist_to_planet_feature**2) 
+        additional_mag_from_planet = (mass_ratio / denom_planet) * 500 # 증폭 계수 조정
+        magnification += additional_mag_from_planet
 
     return magnification
+
 
 # --- 4. 중력 렌즈 시스템 시각화 ---
 st.subheader("시스템 시각화")
@@ -117,11 +181,14 @@ ax_lensing.text(0, -15, '렌즈 별', color='white', ha='center', fontsize=10)
 # `planet_position`은 아인슈타인 반경의 배수로 해석하여 시각화에 적용
 # `planet_position`은 렌즈 별 중심으로부터의 상대적인 횡단면 거리 (u_param과 유사)
 planet_display_x = planet_position * R_E_display 
-ax_lensing.add_artist(plt.Circle((planet_display_x, 15), 4, color='gray', zorder=6)) # 외계 행성
-ax_lensing.text(planet_display_x, 25, '외계 행성', color='white', ha='center', fontsize=10)
+planet_display_y = planet_separation_from_lens * 15 # 행성이 렌즈 별로부터의 거리 시각화에 반영
+ax_lensing.add_artist(plt.Circle((planet_display_x, planet_display_y), 4, color='gray', zorder=6)) # 외계 행성
+ax_lensing.text(planet_display_x, planet_display_y + 10, '외계 행성', color='white', ha='center', fontsize=10)
 
 # 배경 별 (광원) 그리기 (시뮬레이션에서 고정된 위치 - 관측자 시점에서 렌즈 뒤)
-ax_lensing.add_artist(plt.Circle((R_E_display * 0.8, -R_E_display * 0.6), 6, color='white', zorder=4)) # 배경 별 (광원)
+# 광원 크기 반영 (시각화 목적)
+source_display_radius = source_radius_ratio * R_E_display * 5 # 시각화 스케일 조정
+ax_lensing.add_artist(plt.Circle((R_E_display * 0.8, -R_E_display * 0.6), source_display_radius, color='white', zorder=4)) # 배경 별 (광원)
 ax_lensing.text(R_E_display * 0.8, -R_E_display * 0.75, '배경 별', color='white', ha='center', fontsize=10)
 
 # 아인슈타인 링 시각화 (개념적 표현)
@@ -131,11 +198,9 @@ ax_lensing.add_artist(circle_einstein)
 ax_lensing.text(R_E_display + 5, 0, '아인슈타인 링', color='cyan', va='center', ha='left', fontsize=10)
 
 # 빛의 경로 (개념적, 곡선으로 표현)
-# 실제 렌즈 효과는 훨씬 복잡하지만, 여기서는 빛이 휘는 것을 개념적으로 나타냅니다.
 light_path_y_offset = R_E_display * 0.7
 ax_lensing.plot([-100, -20], [-light_path_y_offset, -light_path_y_offset], color='orange', linestyle='-', linewidth=1)
 ax_lensing.plot([20, 100], [-light_path_y_offset, -light_path_y_offset], color='orange', linestyle='-', linewidth=1)
-# 렌즈에 의해 굴절되는 부분
 ax_lensing.plot([-20, 0, 20], [-light_path_y_offset, -10, -light_path_y_offset], color='orange', linestyle='-', linewidth=1, alpha=0.7)
 
 # 스트림릿에 Matplotlib 그림 표시
@@ -145,23 +210,22 @@ st.pyplot(fig_lensing)
 # --- 5. 밝기 변화 곡선 ---
 st.subheader("밝기 변화 곡선")
 
-# 배경 별의 렌즈 시스템 통과 시간에 따른 상대 거리 (u 값)
-# x축은 배경 별이 렌즈 시스템을 횡단할 때 렌즈 중심으로부터의 무차원 거리 u를 나타냅니다.
-u_values = np.linspace(-3.0, 3.0, 300) # -3 R_E 에서 3 R_E 까지의 상대 거리
+# 배경 별의 렌즈 시스템 횡단 경로 (X축: 렌즈-광원 상대 거리 u)
+# 상대 속도에 따라 x축 범위 조절 (이벤트 지속 시간 조절)
+u_min = -3.0 * relative_velocity_factor
+u_max = 3.0 * relative_velocity_factor
+u_values = np.linspace(u_min, u_max, 300) 
 
 # 각 u 값에 대한 밝기 증폭률 계산
 magnifications = []
-# 시뮬레이션 상의 행성 분리 거리 (렌즈 별에서 행성까지의 상대 거리)
-sim_planet_separation = 0.5 # 아인슈타인 반경의 0.5배 위치에 행성이 있다고 가정 (조절 가능)
-sim_planet_mass_ratio = 1e-4 # 행성 질량 / 렌즈 별 질량 비율 (예: 목성 정도의 행성)
-
 for u_val in u_values:
-    # calculate_magnification 함수에 현재 u_val과 planet_position을 전달
+    # calculate_magnification 함수에 모든 슬라이더 값을 전달
     mag = calculate_magnification(
-        abs(u_val), # u_param은 항상 0에서 양의 값 (중심으로부터의 거리)
-        alpha_planet=abs(planet_position), # 슬라이더의 행성 위치 (양수 값만 고려)
-        planet_separation=sim_planet_separation,
-        planet_mass_ratio=sim_planet_mass_ratio
+        u_source=abs(u_val), # 배경 별의 렌즈 중심으로부터의 거리 (양수)
+        u_planet_x=abs(planet_position), # 행성 X축 위치 (양수)
+        planet_separation=planet_separation_from_lens,
+        mass_ratio=planet_mass_ratio,
+        source_size=source_radius_ratio
     )
     magnifications.append(mag)
 
@@ -169,19 +233,19 @@ for u_val in u_values:
 fig_light_curve, ax_light_curve = plt.subplots(figsize=(8, 4))
 ax_light_curve.plot(u_values, magnifications, color='blue', linewidth=2)
 ax_light_curve.set_title("배경 별 밝기 변화 (광도 증폭률)")
-ax_light_curve.set_xlabel("렌즈-광원 상대 거리 (아인슈타인 반경의 배수, u)")
+ax_light_curve.set_xlabel(f"렌즈-광원 상대 거리 (아인슈타인 반경의 배수, u)")
 ax_light_curve.set_ylabel("광도 증폭률")
 ax_light_curve.grid(True)
 ax_light_curve.set_ylim(bottom=1.0) # 증폭률은 1 (원래 밝기)보다 작아지지 않음
 
 # 현재 행성 위치에 해당하는 밝기 곡선 상의 위치 표시
-# `planet_position` 슬라이더의 값과 `u_values`의 연결을 시각적으로 보여줍니다.
-current_u_for_marker = planet_position # 슬라이더 값 그대로 사용
+current_u_for_marker = planet_position
 current_mag_at_marker = calculate_magnification(
     abs(current_u_for_marker),
-    alpha_planet=abs(planet_position),
-    planet_separation=sim_planet_separation,
-    planet_mass_ratio=sim_planet_mass_ratio
+    u_planet_x=abs(planet_position),
+    planet_separation=planet_separation_from_lens,
+    mass_ratio=planet_mass_ratio,
+    source_size=source_radius_ratio
 )
 ax_light_curve.plot([current_u_for_marker], [current_mag_at_marker], 'ro', markersize=8, label='행성 위치') # 붉은 점으로 현재 행성 위치 표시
 ax_light_curve.legend()
