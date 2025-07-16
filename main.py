@@ -1,22 +1,6 @@
-
 import streamlit as st
+import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.font_manager as fm
-import os
-
-# 폰트 경로
-font_path = "NanumGothic.ttf"
-
-try:
-    # 폰트를 직접 등록하고 이름 강제 지정
-    fm.fontManager.addfont(font_path)
-    plt.rc('font', family='NanumGothic')
-    plt.rcParams['axes.unicode_minus'] = False
-
-except Exception as e:
-    st.error(f"❌ 폰트 적용 실패: {e}")
-# 제목
-st.title("외계 행성 중력 렌즈 시뮬레이터")
 
 # --- 1. 시뮬레이션 파라미터 설정 ---
 st.set_page_config(layout="wide") # 페이지 레이아웃 넓게 설정
