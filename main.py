@@ -3,6 +3,43 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time 
 
+# --- 폰트 설정 시작 ---
+# 폰트 파일 경로 지정
+# 만약 NanumGothic.ttf 파일이 main.py와 같은 디렉토리에 없다면,
+# 정확한 경로를 입력해야 합니다. (예: "./fonts/NanumGothic.ttf")
+font_path = "NanumGothic.ttf"
+
+try:
+    # 폰트 파일이 존재하는지 확인
+    if not fm.findfont(fm.FontProperties(fname=font_path)):
+        st.warning(f"경고: 폰트 파일 '{font_path}'를 찾을 수 없습니다. "
+                   "시스템에 나눔고딕 폰트가 설치되어 있거나, 파일 경로가 올바른지 확인해주세요.")
+        # 대체 폰트 설정 (시스템 기본 한글 폰트 시도 또는 영어 폰트)
+        if 'Malgun Gothic' in [f.name for f in fm.fontManager.ttflist]: # 윈도우즈
+            plt.rc('font', family='Malgun Gothic')
+        elif 'AppleGothic' in [f.name for f in fm.fontManager.ttflist]: # macOS
+            plt.rc('font', family='AppleGothic')
+        else: # 일반 리눅스 또는 다른 환경
+            # 나눔고딕이 시스템에 설치되어 있다면 자동으로 찾아 사용
+            # (fonts-nanum 패키지 설치 필요: sudo apt-get install fonts-nanum)
+            if 'NanumGothic' in [f.name for f in fm.fontManager.ttflist]:
+                plt.rc('font', family='NanumGothic')
+            else:
+                st.error("시스템에 한글 폰트가 설치되어 있지 않아 그래프의 한글이 깨질 수 있습니다."
+                         "리눅스 사용자의 경우 'sudo apt-get install fonts-nanum' 명령으로 폰트를 설치해주세요.")
+                plt.rc('font', family='DejaVu Sans') # 기본 영어 폰트
+    else:
+        # 폰트를 직접 등록하고 이름 강제 지정
+        fm.fontManager.addfont(font_path)
+        plt.rc('font', family='NanumGothic')
+    
+    plt.rcParams['axes.unicode_minus'] = False # 마이너스 기호 깨짐 방지
+except Exception as e:
+    st.error(f"폰트 설정 중 오류가 발생했습니다: {e}. 기본 폰트로 표시됩니다.")
+    plt.rc('font', family='DejaVu Sans') # 오류 발생 시 기본 폰트
+    plt.rcParams['axes.unicode_minus'] = False
+# --- 폰트 설정 끝 ---
+
 # --- 1. 시뮬레이션 파라미터 설정 ---
 st.set_page_config(layout="wide") 
 st.title("🌌 미세 중력 렌즈 시뮬레이션 (최종 애니메이션 개선)")
