@@ -1,6 +1,7 @@
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm # 폰트 관리자 임포트
 import time 
 
 # --- 폰트 설정 시작 ---
@@ -39,6 +40,7 @@ except Exception as e:
     plt.rc('font', family='DejaVu Sans') # 오류 발생 시 기본 폰트
     plt.rcParams['axes.unicode_minus'] = False
 # --- 폰트 설정 끝 ---
+
 
 # --- 1. 시뮬레이션 파라미터 설정 ---
 st.set_page_config(layout="wide") 
@@ -422,6 +424,7 @@ st.markdown("---")
 st.subheader("🔭 중력 렌즈에 대하여")
 st.write("""
 **중력 렌즈(Gravitational Lensing)**는 아인슈타인의 일반 상대성 이론에 의해 예측된 현상입니다. 질량을 가진 물체(예: 별, 은하, 블랙홀)가 주변의 시공간을 휘게 만들고, 이 휘어진 시공간을 통과하는 빛의 경로가 마치 렌즈를 통과하는 것처럼 휘어지는 현상입니다. 이는 멀리 떨어진 광원(배경 별)의 이미지를 확대하거나 왜곡시켜 보이는 효과를 줍니다.
+
 
 **미세 중력 렌즈(Microlensing)**는 렌즈 역할을 하는 천체가 항성이나 비교적 작은 천체(예: 외계 행성)일 때 나타나는 현상입니다. 이 경우, 멀리 떨어진 배경 별의 빛이 렌즈 천체에 의해 일시적으로 밝아지는 **광도 변화**가 발생합니다. 특히 렌즈 별 주위에 외계 행성이 존재하면, 행성의 중력도 빛의 경로에 미세한 영향을 주어 배경 별의 밝기 곡선에 독특한 추가적인 변화(예: '범프' 또는 '딥')를 만들어냅니다. 이러한 미세한 밝기 변화를 분석하여 직접 보기 어려운 외계 행성의 존재를 찾아낼 수 있습니다.
 
