@@ -1,11 +1,11 @@
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
-import time # 애니메이션을 위한 시간 제어
+import time 
 
 # --- 1. 시뮬레이션 파라미터 설정 ---
-st.set_page_config(layout="wide") # 페이지 레이아웃 넓게 설정
-st.title("🌌 미세 중력 렌즈 시뮬레이션 (행성 궤도 운동 추가)")
+st.set_page_config(layout="wide") 
+st.title("🌌 미세 중력 렌즈 시뮬레이션 (최종 애니메이션 개선)")
 st.write("다양한 파라미터를 조절하여 중력 렌즈 효과와 외계 행성으로 인한 밝기 변화 곡선을 관찰해보세요.")
 
 # 사이드바에서 파라미터 조절
@@ -41,7 +41,6 @@ planet_mass_ratio = st.sidebar.slider(
 )
 
 # 3. 외계 행성의 렌즈 별로부터의 거리 (아인슈타인 반경 대비)
-# 이제는 궤도 반경으로 사용됩니다.
 planet_separation_from_lens = st.sidebar.slider(
     "행성-렌즈 별 궤도 반경 (아인슈타인 반경 대비)",
     min_value=0.5, max_value=2.0, value=1.0, step=0.05,
@@ -85,74 +84,59 @@ animation_progress = st.sidebar.slider(
 )
 animate_button = st.sidebar.button("애니메이션 시작/정지")
 
+# --- Streamlit Session State 초기화 (중요!) ---
+# 앱이 시작될 때마다 애니메이션 상태를 초기화하여 이전 세션 문제 방지
+if 'animating' not in st.session_state:
+    st.session_state.animating = False
+
+
 # --- 2. 물리 상수 및 기본 설정 ---
 G = 6.67430e-11  # 중력 상수 (m^3 kg^-1 s^-2)
 c = 2.99792458e8 # 빛의 속도 (m/s)
 M_sun = 1.989e30 # 태양 질량 (kg)
 PC_TO_METER = 3.0857e16 # 1 파섹(pc) = 3.0857e16 미터
 
-D_L = observer_lens_distance_kpc * 1000 * PC_TO_METER # kpc를 미터로 변환
-D_S = D_L + (500 * PC_TO_METER) # 렌즈보다 500 파섹 뒤에 광원이 있다고 가정
+D_L = observer_lens_distance_kpc * 1000 * PC_TO_METER 
+D_S = D_L + (500 * PC_TO_METER) 
 D_LS = D_S - D_L
 
 M_lens = lens_mass_solar * M_sun
 
 einstein_radius_angle = np.sqrt(4 * G * M_lens / (c**2) * D_LS / (D_L * D_S))
 
-R_E_display = 40 # 시각화에서 아인슈타인 반경에 해당하는 픽셀 크기
+R_E_display = 40 
 
 
 # --- 3. 중력 렌즈 광도 증폭 계산 함수 ---
-# 실제 이진 렌즈 광도 곡선은 훨씬 복잡하며, 전문 라이브러리나 수치적 해결이 필요합니다.
-# 이 함수는 개념적 이해를 돕기 위한 단순화된 모델입니다.
 def calculate_magnification(u_source_x, u_source_y, u_planet_x, u_planet_y, mass_ratio, source_size):
     """
     미세 중력 렌즈 광도 증폭률 계산 (단순화된 근사)
-
-    Args:
-        u_source_x (float): 배경 별의 렌즈 중심으로부터의 X축 무차원 거리 (아인슈타인 반경 단위).
-        u_source_y (float): 배경 별의 렌즈 중심으로부터의 Y축 무차원 거리 (아인슈타인 반경 단위).
-        u_planet_x (float): 외계 행성의 렌즈 별에 대한 X축 위치 (아인슈타인 반경 단위).
-        u_planet_y (float): 외계 행성의 렌즈 별에 대한 Y축 위치 (아인슈타인 반경 단위).
-        mass_ratio (float): 행성 질량 / 렌즈 별 질량.
-        source_size (float): 광원 별의 크기 (아인슈타인 반경 대비).
-
-    Returns:
-        float: 계산된 광도 증폭률.
     """
     
-    # 단일 렌즈에 의한 기본 증폭 계산
-    u_main = np.sqrt(u_source_x**2 + u_source_y**2) # 렌즈 중심으로부터의 거리
+    u_main = np.sqrt(u_source_x**2 + u_source_y**2) 
     
-    if u_main < 1e-6: # u가 0에 매우 가까울 때 (중심)
+    if u_main < 1e-6: 
         if source_size > 0:
             mag_main = (u_main**2 + 2) / (np.sqrt(u_main**2 + 4) * source_size)
         else:
-            mag_main = 1e6 # 무한대 증폭 근사
+            mag_main = 1e6 
     else:
         mag_main = (u_main**2 + 2) / (u_main * np.sqrt(u_main**2 + 4))
 
-    # 과도한 증폭 방지
     if mag_main > 1e4:
         mag_main = 1e4
     
     magnification = mag_main
 
-    # 행성으로 인한 추가 증폭 (매우 단순화된 모델)
-    # 배경 별과 행성 사이의 상대 거리 (2D 평면)
     dist_to_planet = np.sqrt((u_source_x - u_planet_x)**2 + (u_source_y - u_planet_y)**2)
     
-    # 행성으로 인한 증폭의 '영향권'을 나타내는 계수
-    # 행성 질량이 클수록, 그리고 행성에 가까울수록 영향이 커지도록 설정
-    
-    if dist_to_planet < 0.1 + source_size + (mass_ratio * 10): # 영향권 범위 확대 (질량에 비례)
-        additional_mag = (mass_ratio / (dist_to_planet**2 + 0.001)) * 50 # 계수 조정
+    if dist_to_planet < 0.1 + source_size + (mass_ratio * 10): 
+        additional_mag = (mass_ratio / (dist_to_planet**2 + 0.001)) * 50 
         magnification += additional_mag
         
-        # 행성 위치를 통과할 때 약간의 딥 효과 추가 (실제로는 더 복잡)
         if dist_to_planet < source_size * 0.5:
-             magnification *= (1 - mass_ratio * 500) # 행성으로 인한 약간의 감쇄
-             if magnification < 1.0: magnification = 1.0 # 1보다 작아지지 않게 방지
+             magnification *= (1 - mass_ratio * 500) 
+             if magnification < 1.0: magnification = 1.0 
 
     return magnification
 
@@ -168,7 +152,7 @@ def update_lensing_visualization(current_u_x, current_u_y, current_planet_x, cur
     """
     현재 u 값과 행성 위치에 따라 시스템 시각화를 업데이트합니다.
     """
-    ax_obj.clear() # 이전 그림 지우기
+    ax_obj.clear() 
     ax_obj.set_facecolor('black')
     ax_obj.set_xlim(-100, 100)
     ax_obj.set_ylim(-100, 100)
@@ -186,10 +170,10 @@ def update_lensing_visualization(current_u_x, current_u_y, current_planet_x, cur
     ax_obj.text(planet_display_x, planet_display_y + 10, '외계 행성', color='white', ha='center', fontsize=10)
 
     # 배경 별 (광원) 그리기 - u 값에 따라 X, Y 위치 변화
-    source_display_x = -current_u_x * R_E_display # u_x 값에 따라 배경별 X 위치 조절
-    source_display_y = -current_u_y * R_E_display # u_y 값에 따라 배경별 Y 위치 조절
+    source_display_x = -current_u_x * R_E_display 
+    source_display_y = -current_u_y * R_E_display 
     source_display_radius = source_radius_ratio * R_E_display * 5 
-    ax_obj.add_artist(plt.Circle((source_display_x, source_display_y), source_display_radius, color='white', zorder=4))
+    ax_obj.add_artist(plt.Circle((source_display_x, source_display_y), source_display_radius, color='orange', zorder=4)) # 광원 색상 변경
     ax_obj.text(source_display_x, source_display_y - 15, '배경 별', color='white', ha='center', fontsize=10)
 
 
@@ -214,10 +198,10 @@ initial_planet_x = planet_separation_from_lens * np.cos(initial_planet_angle_rad
 initial_planet_y = planet_separation_from_lens * np.sin(initial_planet_angle_rad)
 
 update_lensing_visualization(
-    -3.0 * relative_velocity_factor, # 초기 배경별 X
-    u_source_y_impact_parameter,    # 초기 배경별 Y
-    initial_planet_x,               # 초기 행성 X
-    initial_planet_y,               # 초기 행성 Y
+    -3.0 * relative_velocity_factor, 
+    u_source_y_impact_parameter,    
+    initial_planet_x,               
+    initial_planet_y,               
     ax_lensing
 ) 
 visualization_placeholder.pyplot(fig_lensing)
@@ -226,84 +210,45 @@ visualization_placeholder.pyplot(fig_lensing)
 # --- 5. 밝기 변화 곡선 ---
 st.subheader("밝기 변화 곡선")
 
-# 배경 별의 렌즈 시스템 횡단 경로 (X축: 렌즈-광원 상대 거리 u)
 u_min_curve = -3.0 * relative_velocity_factor
 u_max_curve = 3.0 * relative_velocity_factor
 u_values_x_curve = np.linspace(u_min_curve, u_max_curve, 300) 
 
-# 밝기 곡선은 이제 매 프레임마다 다시 계산되어야 합니다.
-# (행성 위치가 시간에 따라 변하기 때문)
-# 초기에는 배경별의 X 경로만 고려하여 미리 계산 (애니메이션이 아닐 때)
-magnifications_curve_initial = []
-for idx, u_x_val in enumerate(u_values_x_curve):
-    # 행성 위치를 고정된 초기값으로 계산하여 초기 곡선을 그림
-    angle_rad_initial = np.deg2rad(planet_initial_angle_deg + (idx / len(u_values_x_curve)) * 360 / planet_orbital_period_factor)
-    fixed_planet_x = planet_separation_from_lens * np.cos(angle_rad_initial)
-    fixed_planet_y = planet_separation_from_lens * np.sin(angle_rad_initial)
-
-    mag = calculate_magnification(
-        u_source_x=u_x_val,
-        u_source_y=u_source_y_impact_parameter,
-        u_planet_x=fixed_planet_x,
-        u_planet_y=fixed_planet_y,
-        mass_ratio=planet_mass_ratio,
-        source_size=source_radius_ratio
-    )
-    magnifications_curve_initial.append(mag)
-
-# 밝기 곡선 그림 초기화
 fig_light_curve, ax_light_curve = plt.subplots(figsize=(8, 4))
-ax_light_curve.plot(u_values_x_curve, magnifications_curve_initial, color='blue', linewidth=2)
-ax_light_curve.set_title("배경 별 밝기 변화 (광도 증폭률)")
-ax_light_curve.set_xlabel(f"렌즈-광원 상대 X거리 (아인슈타인 반경의 배수, u_x)")
-ax_light_curve.set_ylabel("광도 증폭률")
-ax_light_curve.grid(True)
-ax_light_curve.set_ylim(bottom=1.0) # 증폭률은 1 (원래 밝기)보다 작아지지 않음
-
-# 밝기 곡선 그림을 담을 컨테이너
 light_curve_placeholder = st.empty()
-light_curve_placeholder.pyplot(fig_light_curve)
 
 
 # --- 애니메이션 루프 ---
 if animate_button:
-    if 'animating' not in st.session_state:
-        st.session_state.animating = False
-    
-    st.session_state.animating = not st.session_state.animating # 버튼 누르면 상태 토글
+    st.session_state.animating = not st.session_state.animating 
 
 if st.session_state.get('animating', False):
+    st.write("애니메이션 실행 중... 🌟") # 애니메이션 시작 알림
     progress_bar = st.progress(0)
     for i in range(101):
-        # 애니메이션 진행도에 따른 u_x_value 계산
         current_u_index = int(i / 100 * (len(u_values_x_curve) - 1))
         current_u_x_value_for_animation = u_values_x_curve[current_u_index]
         
-        # 행성 위치 계산 (애니메이션 진행도에 따라 공전)
-        # 100프레임 동안 행성이 planet_orbital_period_factor 만큼 공전
         current_planet_angle_rad = np.deg2rad(planet_initial_angle_deg + (i / 100) * 360 / planet_orbital_period_factor)
         current_planet_x = planet_separation_from_lens * np.cos(current_planet_angle_rad)
         current_planet_y = planet_separation_from_lens * np.sin(current_planet_angle_rad)
 
-        # 시각화 업데이트
         update_lensing_visualization(
             current_u_x_value_for_animation, 
             u_source_y_impact_parameter,
-            current_planet_x, # 동적으로 변하는 행성 X
-            current_planet_y, # 동적으로 변하는 행성 Y
+            current_planet_x, 
+            current_planet_y, 
             ax_lensing
         )
         visualization_placeholder.pyplot(fig_lensing)
 
-        # 밝기 곡선 업데이트 (현재 위치 마커)
         ax_light_curve.clear()
         
         # 밝기 곡선 전체를 매 프레임마다 행성 위치에 따라 다시 계산
         magnifications_curve_animated = []
         for idx, u_x_val in enumerate(u_values_x_curve):
-            # 애니메이션 진행도에 따른 행성 위치를 사용하여 각 지점의 증폭률 계산
-            # 전체 애니메이션 진행도 (i/100)와 x축 진행도 (idx/len)를 결합하여 행성의 정확한 상대 위치 결정
-            # 단순화를 위해, 밝기 곡선 계산 시에는 'i'에 비례하여 행성이 공전하는 것으로 가정
+            # 밝기 곡선 그릴 때도 현재 애니메이션 프레임의 행성 위치를 반영
+            # (i / 100)은 전체 애니메이션 진행도
             temp_planet_angle_rad = np.deg2rad(planet_initial_angle_deg + (i / 100) * 360 / planet_orbital_period_factor)
             temp_planet_x = planet_separation_from_lens * np.cos(temp_planet_angle_rad)
             temp_planet_y = planet_separation_from_lens * np.sin(temp_planet_angle_rad)
@@ -326,12 +271,11 @@ if st.session_state.get('animating', False):
         ax_light_curve.grid(True)
         ax_light_curve.set_ylim(bottom=1.0)
         
-        # 현재 배경 별 위치의 증폭률 계산 (애니메이션된 행성 위치 사용)
         current_mag_at_animation_point = calculate_magnification(
             u_source_x=current_u_x_value_for_animation,
             u_source_y=u_source_y_impact_parameter,
-            u_planet_x=current_planet_x, # 애니메이션된 행성 위치 사용
-            u_planet_y=current_planet_y, # 애니메이션된 행성 위치 사용
+            u_planet_x=current_planet_x, 
+            u_planet_y=current_planet_y, 
             mass_ratio=planet_mass_ratio,
             source_size=source_radius_ratio
         )
@@ -342,35 +286,44 @@ if st.session_state.get('animating', False):
         light_curve_placeholder.pyplot(fig_light_curve)
 
         progress_bar.progress(i)
-        time.sleep(0.05) # 애니메이션 속도 조절
+        time.sleep(0.05) 
 
-    st.session_state.animating = False # 애니메이션 종료 시 상태 리셋
-    st.experimental_rerun() # 애니메이션 종료 후 전체 앱 새로고침
+    st.session_state.animating = False 
+    st.experimental_rerun() 
 
 # 슬라이더로 직접 조절 시에도 시각화 및 곡선 업데이트
 else:
     current_u_index_from_slider = int(animation_progress / 100 * (len(u_values_x_curve) - 1))
     current_u_x_value_from_slider = u_values_x_curve[current_u_index_from_slider]
 
-    # 행성 위치 계산 (슬라이더 진행도에 따라 공전)
     current_planet_angle_rad = np.deg2rad(planet_initial_angle_deg + (animation_progress / 100) * 360 / planet_orbital_period_factor)
     current_planet_x = planet_separation_from_lens * np.cos(current_planet_angle_rad)
     current_planet_y = planet_separation_from_lens * np.sin(current_planet_angle_rad)
 
-    # 시각화 업데이트
     update_lensing_visualization(
         current_u_x_value_from_slider, 
         u_source_y_impact_parameter,
-        current_planet_x, # 슬라이더로 변하는 행성 X
-        current_planet_y, # 슬라이더로 변하는 행성 Y
+        current_planet_x, 
+        current_planet_y, 
         ax_lensing
     )
     visualization_placeholder.pyplot(fig_lensing)
 
-    # 밝기 곡선 업데이트 (슬라이더로 조작 시에는 고정된 초기 곡선을 사용)
-    # 다만, 마커는 현재 행성 위치에 따라 계산된 증폭률을 표시
+    # 슬라이더 조작 시 밝기 곡선도 현재 행성 위치에 따라 동적으로 계산
+    magnifications_curve_static = []
+    for u_x_val in u_values_x_curve:
+        mag = calculate_magnification(
+            u_source_x=u_x_val,
+            u_source_y=u_source_y_impact_parameter,
+            u_planet_x=current_planet_x, 
+            u_planet_y=current_planet_y, 
+            mass_ratio=planet_mass_ratio,
+            source_size=source_radius_ratio
+        )
+        magnifications_curve_static.append(mag)
+
     ax_light_curve.clear()
-    ax_light_curve.plot(u_values_x_curve, magnifications_curve_initial, color='blue', linewidth=2) # 초기 곡선 사용
+    ax_light_curve.plot(u_values_x_curve, magnifications_curve_static, color='blue', linewidth=2) 
     
     ax_light_curve.set_title("배경 별 밝기 변화 (광도 증폭률)")
     ax_light_curve.set_xlabel(f"렌즈-광원 상대 X거리 (아인슈타인 반경의 배수, u_x)")
@@ -378,12 +331,11 @@ else:
     ax_light_curve.grid(True)
     ax_light_curve.set_ylim(bottom=1.0)
     
-    # 현재 배경 별 위치의 증폭률 계산 (슬라이더에 따른 행성 위치 사용)
     current_mag_at_slider_point = calculate_magnification(
         u_source_x=current_u_x_value_from_slider,
         u_source_y=u_source_y_impact_parameter,
-        u_planet_x=current_planet_x, # 슬라이더에 따른 행성 위치 사용
-        u_planet_y=current_planet_y, # 슬라이더에 따른 행성 위치 사용
+        u_planet_x=current_planet_x, 
+        u_planet_y=current_planet_y, 
         mass_ratio=planet_mass_ratio,
         source_size=source_radius_ratio
     )
